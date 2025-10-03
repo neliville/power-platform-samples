@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2016-06-01/Microsoft.LogicAppDefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections": {
+      "defaultValue": {},
+      "type": "Object"
+    }
+  },
+  "triggers": {
+    "When_an_item_is_created": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_sharepointonline",
+          "operationId": "OnCreatedItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+        },
+        "parameters": {
+          "subscriptionId": "<GUID de votre abonnement>",
+          "siteAddress": "https://contoso.sharepoint.com/sites/Projets",
+          "listName": "Projets"
+        }
+      }
+    }
+  },
+  "actions": {
+    "Send_an_email": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_office365",
+          "operationId": "SendEmailV2",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+        },
+        "parameters": {
+          "to": "@triggerBody()?['Owner']?['Email']",
+          "subject": "Nouveau projet créé : @triggerBody()?['Title']",
+          "body": "Bonjour,<br><br>Un nouveau projet a été créé.<br><strong>Titre :</strong> @triggerBody()?['Title']<br><br>Merci."
+        }
+      }
+    }
+  },
+  "outputs": {}
+}
