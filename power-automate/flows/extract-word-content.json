@@ -1,0 +1,113 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "name": "Extract section from Word document",
+  "description": "Exemple de flux pour extraire le contenu d’un document Word stocké sur SharePoint et vérifier la présence d’une section spécifique.",
+  "actions": {
+    "Get_file_content": {
+      "runAfter": {},
+      "metadata": {
+        "operationMetadataId": "01b2c3d4-e5f6-7890-abcd-1234567890ab"
+      },
+      "type": "Get_file_content",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+          }
+        },
+        "method": "get",
+        "path": "/datasets/default/files/@{encodeURIComponent(triggerOutputs()?['body/DocPath'])}/content"
+      }
+    },
+    "Extract_text_from_document": {
+      "runAfter": {
+        "Get_file_content": [
+          "Succeeded"
+        ]
+      },
+      "metadata": {
+        "operationMetadataId": "23456789-0abc-def1-2345-67890abcdef1"
+      },
+      "type": "Extract_text_from_document",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['aibuilder']['connectionId']"
+          }
+        },
+        "method": "post",
+        "path": "/formrecognizer/v2.1-preview.3/analyze-text",
+        "body": {
+          "documentType": "Word",
+          "document": "@base64(body('Get_file_content'))"
+        }
+      }
+    },
+    "Check_section_present": {
+      "runAfter": {
+        "Extract_text_from_document": [
+          "Succeeded"
+        ]
+      },
+      "metadata": {
+        "operationMetadataId": "34567890-abcd-ef12-3456-7890abcdef12"
+      },
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "contains": [
+              "@body('Extract_text_from_document')?['text']",
+              "Introduction"
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "If_true": {
+          "metadata": {
+            "operationMetadataId": "4567890a-bcde-f123-4567-890abcdef123"
+          },
+          "type": "Compose",
+          "inputs": "La section est présente dans le document."
+        },
+        "If_false": {
+          "metadata": {
+            "operationMetadataId": "567890ab-cdef-1234-5678-90abcdef1234"
+          },
+          "type": "Compose",
+          "inputs": "La section est absente du document."
+        }
+      }
+    }
+  },
+  "triggers": {
+    "Manually_trigger_a_flow": {
+      "metadata": {
+        "operationMetadataId": "67890abc-def1-2345-6789-0abcdef12345"
+      },
+      "type": "Request",
+      "kind": "Manual",
+      "inputs": {
+        "schema": {
+          "properties": {
+            "DocPath": {
+              "type": "string",
+              "description": "Chemin relatif du fichier Word dans SharePoint (ex. /Documents partagés/Contrat.docx)"
+            }
+          },
+          "required": [
+            "DocPath"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  },
+  "parameters": {
+    "$connections": {
+      "type": "object",
+      "defaultValue": {}
+    }
+  }
+}
