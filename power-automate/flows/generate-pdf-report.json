@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "name": "Generate PDF report from Word template",
+  "description": "Exemple de flux pour générer un rapport PDF à partir d’un modèle Word et l’envoyer par e-mail.",
+  "triggers": {
+    "Manually_trigger_a_flow": {
+      "type": "Request",
+      "kind": "Manual",
+      "inputs": {
+        "schema": {
+          "properties": {
+            "Title": { "type": "string" },
+            "CustomerName": { "type": "string" },
+            "Amount": { "type": "number" }
+          },
+          "required": [ "Title", "CustomerName", "Amount" ],
+          "type": "object"
+        }
+      }
+    }
+  },
+  "actions": {
+    "Populate_a_Microsoft_Word_template": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_wordonlinebusiness",
+          "operationId": "PopulateWordTemplate",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness"
+        },
+        "parameters": {
+          "file": {
+            "url": "/sites/Exemple/Documents partagés/ModeleRapport.docx"
+          },
+          "data": {
+            "Titre": "@triggerOutputs()?['body/Title']",
+            "Client": "@triggerOutputs()?['body/CustomerName']",
+            "Montant": "@triggerOutputs()?['body/Amount']"
+          }
+        }
+      },
+      "runAfter": {}
+    },
+    "Convert_Word_to_PDF": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_wordonlinebusiness",
+          "operationId": "ConvertWordToPdf",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness"
+        },
+        "parameters": {
+          "file": "@outputs('Populate_a_Microsoft_Word_template')"
+        }
+      },
+      "runAfter": {
+        "Populate_a_Microsoft_Word_template": [ "Succeeded" ]
+      }
+    },
+    "Send_an_email": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_office365",
+          "operationId": "SendEmailV2",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+        },
+        "parameters": {
+          "to": "user@example.com",
+          "subject": "Rapport PDF généré",
+          "body": "Veuillez trouver en pièce jointe le rapport PDF généré.",
+          "attachments": [
+            {
+              "Name": "Rapport.pdf",
+              "ContentBytes": "@base64(body('Convert_Word_to_PDF'))"
+            }
+          ]
+        }
+      },
+      "runAfter": {
+        "Convert_Word_to_PDF": [ "Succeeded" ]
+      }
+    }
+  },
+  "outputs": {},
+  "parameters": {
+    "$connections": {
+      "type": "object",
+      "defaultValue": {}
+    }
+  }
+}
