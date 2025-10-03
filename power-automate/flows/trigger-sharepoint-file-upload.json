@@ -1,0 +1,101 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "name": "Trigger file upload and send email",
+  "description": "Exemple de flux déclenché automatiquement lorsqu’un fichier est ajouté dans une bibliothèque SharePoint. Le flux récupère le contenu du fichier et envoie un email avec le fichier en pièce jointe.",
+  "actions": {
+    "Get_file_content": {
+      "runAfter": {},
+      "metadata": {
+        "operationMetadataId": "7b189be8-4b8a-4b8a-86a0-123456789abc"
+      },
+      "type": "Get_file_content",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+          }
+        },
+        "method": "get",
+        "path": "/datasets/default/files/@{encodeURIComponent(triggerOutputs()?['body/Id'])}/content",
+        "retryPolicy": {
+          "type": "none"
+        }
+      }
+    },
+    "Send_an_email_(V2)": {
+      "runAfter": {
+        "Get_file_content": [
+          "Succeeded"
+        ]
+      },
+      "metadata": {
+        "operationMetadataId": "8f5298b3-1234-4f64-9a97-abcdef012345"
+      },
+      "type": "Send_an_email_(V2)",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['office365']['connectionId']"
+          }
+        },
+        "method": "post",
+        "path": "/v2/Mail",
+        "body": {
+          "message": {
+            "subject": "Un nouveau fichier a été déposé",
+            "body": {
+              "contentType": "Text",
+              "content": "Un nouveau fichier a été ajouté à la bibliothèque SharePoint. Veuillez le trouver en pièce jointe."
+            },
+            "toRecipients": [
+              {
+                "emailAddress": {
+                  "address": "user@example.com"
+                }
+              }
+            ],
+            "attachments": [
+              {
+                "@odata.type": "#Microsoft.OutlookServices.FileAttachment",
+                "Name": "@{triggerOutputs()?['body/{FilenameWithExtension}']}",
+                "ContentBytes": "@base64(body('Get_file_content'))"
+              }
+            ]
+          },
+          "saveToSentItems": "true"
+        }
+      }
+    }
+  },
+  "triggers": {
+    "When_a_file_is_created_(properties_only)": {
+      "metadata": {
+        "operationMetadataId": "a6f74bb9-5678-45f3-90b6-0987654321ef"
+      },
+      "type": "ApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+          }
+        },
+        "path": "/datasets/default/triggers/browse/onupdatedfile",
+        "body": {
+          "folders": [
+            "/sites/Exemple/Documents partagés"
+          ]
+        },
+        "subscriptionRequest": {
+          "maximumEventsPerBatch": 1,
+          "maximumEventsPerSecond": 1
+        }
+      }
+    }
+  },
+  "parameters": {
+    "$connections": {
+      "type": "Object",
+      "defaultValue": {}
+    }
+  }
+}
